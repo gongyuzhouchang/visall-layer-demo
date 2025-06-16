@@ -1,0 +1,401 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# AIGCDataVis 第三方组件集成规范
+
+本文档基于当前项目实现，提供了在AIGCDataVis项目中集成第三方可视化组件的标准方法和最佳实践。
+
+## 项目结构概览
+
+```
+src/
+├── components/                    # 组件配置和数据文件夹
+│   ├── index.ts                  # 统一入口，注册所有组件
+│   ├── README.md                 # 组件文件夹说明文档
+│   ├── gauge/                    # 仪表盘组件示例
+│   │   └── index.ts             # 仪表盘配置和数据
+│   └── bar/                     # 柱状图组件示例
+│       └── index.ts             # 柱状图配置和数据
+├── layers/                       # 组件实现文件夹
+│   ├── simpleGaugeLayer.ts      # 仪表盘组件实现
+│   └── simpleBarLayer.ts        # 柱状图组件实现
+├── main.ts                       # 主应用文件
+└── types.d.ts                    # 类型定义
+```
+
+## 组件实现基本结构
+
+### 1. 组件Layer实现 (`src/layers/componentLayer.ts`)
+
+```typescript
+import type { VisInfo, LayerSpec, ApiContext } from '../types.d.ts';
+
+// 获取AIGCDataVis实例
+const AIGCDataVis = window.AIGCDataVis;
+const DEFINE = AIGCDataVis.DEFINE;
+
+// 定义组件信息
+const visInfo: VisInfo = {
+  id: 'componentId', // 组件唯一标识符
+  name_en: 'Component Name',
+  name_zh: '组件中文名称',
+  types_en: ['chart', 'visualization'],
+  purpose_en: ['show data', 'compare values'],
+  purpose_zh: ['显示数据', '比较数值'],
+  standers: '',
+  parameters: {
+    // 定义参数，与Spec.encoding字段保持一致
+    x: {
+      itemType: [DEFINE.STR, DEFINE.NUMBER],
+      category: DEFINE.SINGLE,
+    },
+    y: {
+      itemType: [DEFINE.NUMBER],
+      category: DEFINE.SINGLE,
+    },
+    color: {
+      itemType: [DEFINE.STR],
+      category: DEFINE.COLOR,
+    },
+    // 更多参数...
+  },
+};
+
+// 注册外部图层
+export const layer = AIGCDataVis.defineExternalLayer({
+  type: visInfo.id,
+  visInfo,
+  cdn: ['https://example.com/path/to/component.js'], // 可选：外部CDN
+  render(api: ApiContext, spec: LayerSpec, $dom: HTMLElement) {
+    // 清空旧内容
+    $dom.innerHTML = '';
+
+    // 从spec.encoding中获取参数值
+    const encoding = spec.encoding || {};
+    const data = api.spec.data?.[0]?.values || [];
+
+    // 获取和处理参数
+    const xField = encoding.x as string;
+    const yField = encoding.y as string;
+    const color = (encoding.color as string) || '#1890ff';
+
+    // 组件渲染逻辑
+    // ...
+
+    // 返回清理函数
+    return () => {
+      $dom.innerHTML = '';
+      // 其他清理操作...
+    };
+  },
+});
+```
+
+### 2. 组件配置文件 (`src/components/componentName/index.ts`)
+
+```typescript
+import { layer as componentLayer } from '../../layers/componentLayer';
+import type { ComponentConfig } from '../../types.d.ts';
+
+// 生成测试数据
+export const generateComponentData = () => {
+  return [
+    { category: 'A', value: 100 },
+    { category: 'B', value: 200 },
+    // 更多测试数据...
+  ];
+};
+
+// 组件配置
+export const componentConfig: ComponentConfig = {
+  id: 'componentId', // 与layer中的visInfo.id保持一致
+  name: '组件显示名称',
+  description: '组件功能描述',
+  spec: {
+    data: [
+      {
+        values: generateComponentData(),
+        metadata: {
+          data_type: 'Tabular',
+          attribute_description: [
+            {
+              attribute_name: 'category',
+              attribute_type: 'STRING',
+              attribute_unit: '',
+            },
+            {
+              attribute_name: 'value',
+              attribute_type: 'DOUBLE',
+              attribute_unit: '万元',
+            },
+            // 更多属性描述...
+          ],
+        },
+      },
+    ],
+    view: {
+      main: {
+        layers: [
+          {
+            type: 'componentId', // 与visInfo.id保持一致
+            encoding: {
+              // 编码映射，与parameters定义的参数对应
+              x: 'category',
+              y: 'value',
+              color: '#52c41a',
+              // 更多映射...
+            },
+          },
+        ],
+      },
+    },
+  },
+};
+
+// 导出layer用于注册
+export { componentLayer };
+```
+
+## 添加新组件的标准步骤
+
+### 第1步：创建组件实现文件
+
+```bash
+# 创建新的layer实现文件
+touch src/layers/newComponentLayer.ts
+```
+
+按照上述"组件Layer实现"模板编写组件逻辑。
+
+### 第2步：创建组件配置文件
+
+```bash
+# 创建组件配置文件夹
+mkdir src/components/newComponent
+touch src/components/newComponent/index.ts
+```
+
+按照上述"组件配置文件"模板编写组件配置。
+
+### 第3步：注册到统一入口
+
+编辑 `src/components/index.ts`：
+
+```typescript
+import { gaugeConfig, gaugeLayer } from './gauge';
+import { barConfig, barLayer } from './bar';
+import { newComponentConfig, newComponentLayer } from './newComponent'; // 新增
+
+// 添加到组件配置数组
+export const componentConfigs: ComponentConfig[] = [
+  gaugeConfig,
+  barConfig,
+  newComponentConfig, // 新增
+];
+
+// 添加到组件layers数组
+export const componentLayers = [
+  gaugeLayer,
+  barLayer,
+  newComponentLayer, // 新增
+];
+
+// 导出新组件
+export * from './gauge';
+export * from './bar';
+export * from './newComponent'; // 新增
+```
+
+### 第4步：自动注册和使用
+
+组件会通过 `registerAllComponents()` 函数自动注册，无需手动操作。
+
+## 完整示例：简单柱状图组件
+
+### Layer实现 (`src/layers/simpleBarLayer.ts`)
+
+```typescript
+import type { VisInfo, LayerSpec, ApiContext } from '../types.d.ts';
+
+const AIGCDataVis = window.AIGCDataVis;
+const DEFINE = AIGCDataVis.DEFINE;
+
+const visInfo: VisInfo = {
+  id: 'simpleBar',
+  name_en: 'Simple Bar Chart',
+  name_zh: '简单柱状图',
+  types_en: ['bar', 'chart'],
+  purpose_en: ['compare values', 'show data distribution'],
+  purpose_zh: ['比较数值', '显示数据分布'],
+  standers: '',
+  parameters: {
+    x: {
+      itemType: [DEFINE.STR],
+      category: DEFINE.SINGLE,
+    },
+    y: {
+      itemType: [DEFINE.NUMBER],
+      category: DEFINE.SINGLE,
+    },
+    color: {
+      itemType: [DEFINE.STR],
+      category: DEFINE.COLOR,
+    },
+  },
+};
+
+export const layer = AIGCDataVis.defineExternalLayer({
+  type: visInfo.id,
+  visInfo,
+  render(api: ApiContext, spec: LayerSpec, $dom: HTMLElement) {
+    // 实现逻辑...
+    return () => {
+      $dom.innerHTML = '';
+    };
+  },
+});
+```
+
+### 组件配置 (`src/components/bar/index.ts`)
+
+```typescript
+import { layer as barLayer } from '../../layers/simpleBarLayer';
+import type { ComponentConfig } from '../../types.d.ts';
+
+export const generateBarData = () => {
+  return [
+    { category: '一月', sales: 120 },
+    { category: '二月', sales: 180 },
+    { category: '三月', sales: 150 },
+    { category: '四月', sales: 200 },
+    { category: '五月', sales: 170 },
+  ];
+};
+
+export const barConfig: ComponentConfig = {
+  id: 'simpleBar',
+  name: '简单柱状图',
+  description: '显示分类数据对比的柱状图组件',
+  spec: {
+    data: [
+      {
+        values: generateBarData(),
+        metadata: {
+          data_type: 'Tabular',
+          attribute_description: [
+            {
+              attribute_name: 'category',
+              attribute_type: 'STRING',
+              attribute_unit: '',
+            },
+            {
+              attribute_name: 'sales',
+              attribute_type: 'DOUBLE',
+              attribute_unit: '万元',
+            },
+          ],
+        },
+      },
+    ],
+    view: {
+      main: {
+        layers: [
+          {
+            type: 'simpleBar',
+            encoding: {
+              x: 'category',
+              y: 'sales',
+              color: '#52c41a',
+            },
+          },
+        ],
+      },
+    },
+  },
+};
+
+export { barLayer };
+```
+
+## 编码类型参考
+
+在定义parameters时，可以使用以下DEFINE常量：
+
+### 数据类型
+- `DEFINE.STR`: 字符串
+- `DEFINE.NUMBER`: 数值
+- `DEFINE.BOOLEAN`: 布尔值
+- `DEFINE.OBJECT`: 对象
+- `DEFINE.ARRAY`: 数组
+
+### 参数类别
+- `DEFINE.SINGLE`: 单一值
+- `DEFINE.MULTIPLE`: 多值
+- `DEFINE.COLOR`: 颜色值
+- `DEFINE.GROUPBY`: 分组
+
+## 最佳实践
+
+### 1. 文件组织
+- ✅ **分离关注点**: 组件实现、配置、数据分别管理
+- ✅ **统一入口**: 通过 `src/components/index.ts` 统一管理
+- ✅ **模块化**: 每个组件都是独立的模块
+
+### 2. 命名规范
+- ✅ **组件ID唯一性**: 确保 `visInfo.id` 在系统中唯一
+- ✅ **文件命名一致**: 使用 camelCase 命名组件文件夹
+- ✅ **导出命名**: 使用 `componentConfig` 和 `componentLayer` 模式
+
+### 3. 数据规范
+- ✅ **完整的metadata**: 包含数据类型和属性描述
+- ✅ **属性描述详细**: 包含 `attribute_name`、`attribute_type`、`attribute_unit`
+- ✅ **测试数据有意义**: 提供真实可用的测试数据
+
+### 4. 代码质量
+- ✅ **类型安全**: 使用 TypeScript 类型定义
+- ✅ **错误处理**: 在渲染逻辑中添加适当的错误处理
+- ✅ **资源清理**: 返回清理函数避免内存泄漏
+- ✅ **响应式设计**: 确保组件能够适应容器大小变化
+
+### 5. 渲染规范
+- ✅ **使用DOM元素**: `render(container, spec)` 接收DOM元素
+- ✅ **实例管理**: 正确处理组件实例的生命周期
+- ✅ **编码映射**: 从 `spec.encoding` 中获取参数值
+
+## 自动化功能
+
+### 组件注册
+```typescript
+// 一键注册所有组件
+import { registerAllComponents } from './components';
+registerAllComponents();
+```
+
+### 组件切换
+```typescript
+// 自动支持组件选择和切换
+import { componentConfigs } from './components';
+createComponentSelector(container, componentConfigs, onSelect);
+```
+
+## 常见问题解决
+
+### 1. 组件不显示
+- 检查组件ID是否在 `visInfo.id`、`componentConfig.id`、`encoding.type` 中保持一致
+- 确认组件已正确添加到 `componentConfigs` 和 `componentLayers` 数组中
+
+### 2. 数据映射错误
+- 确认 `encoding` 与 `parameters` 定义匹配
+- 检查测试数据字段名与 `encoding` 中的映射是否对应
+
+### 3. 样式冲突
+- 使用命名空间避免CSS样式冲突
+- 在组件内部使用scoped样式
+
+### 4. 类型错误
+- 确保导入了正确的类型定义
+- 检查 `ComponentConfig` 接口是否匹配实际配置结构
+
+通过遵循这个更新后的规范，你可以快速、高效地在AIGCDataVis项目中集成和管理第三方可视化组件！ 
