@@ -1,6 +1,6 @@
 # visall-layer-demo
 
-> 纯 TypeScript + 原生 DOM 示例，演示如何向 **VISALL AIGCDataVis** 注册自定义 Layer。
+> 纯 TypeScript + 原生 DOM 示例，演示如何向 **AIGCDataVis** 注册自定义 Layer。
 
 ## 快速开始
 
