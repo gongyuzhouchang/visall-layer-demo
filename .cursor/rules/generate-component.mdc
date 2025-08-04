@@ -67,7 +67,7 @@ const visInfo: VisInfo = {
 export const layer = AIGCDataVis.defineExternalLayer({
   type: visInfo.id,
   visInfo,
-  cdn: ['https://example.com/path/to/component.js'], // 可选：外部CDN
+  cdn: ['https://example.com/path/to/component.js'], // 可选：外部CDN(当存在外部CDN时，不需要实现其加载功能，加载功能在AIGCDataVis内部做了，所以这里只要有定义就可以)
   render(api: ApiContext, spec: LayerSpec, $dom: HTMLElement) {
     // 清空旧内容
     $dom.innerHTML = '';
